@@ -1,0 +1,156 @@
+---
+title: 'Top 50 Customers: SQL Pseudo Query'
+author: "Catlaina Zavala"
+output: html_document
+---
+
+Setting up a local 'database' to use for SQL query.
+
+```{r setup}
+
+library(DBI)
+library(RSQLite)
+library(knitr)
+
+myDB <- dbConnect(RSQLite::SQLite(), dbname = ":memory:")
+
+```
+
+Now let's create some user data to put in our database using a data file from Kaggle
+<https://www.kaggle.com/datasets/iamsouravbanerjee/customer-segmentation-51k-records?select=Customer+Segmentation.csv>
+
+```{r users, echo=TRUE, eval=FALSE}
+
+# read in some data with fictional customer names 
+df <-read.csv('~/R projects/PseudoSQL/subscribers_list.csv', header = TRUE, sep=',')
+
+# don't need 100,000 users, so let's take a random sub sample
+users.df <- df[sample(nrow(df), 100), ]
+
+#split names into multiple columns 
+colmn <- paste("col", 1:4, sep="")
+user.names <- tidyr::separate(data = users.df, col = name, sep = " ", 
+                              into = colmn, remove = FALSE)
+#save only names columns 
+user.names <- subset(user.names, select=c('name','col1','col2','col3','col4'))
+user.names$count.na <- rowSums(is.na(user.names))
+
+# delete individuals with more than 2 names (more than 2 columns) 
+user.names2 <- user.names[user.names$count.na == 2, ]
+user.names2 <- user.names2[ ,2:3]
+names(user.names2) <- c('firstName','lastName')
+# generate user ids 
+user.names2$id <- seq_along(user.names2[,1])
+# re-order columns before exporting
+user.names2 <- user.names2[, c(3,1,2)]
+
+#writing this out to csv to save time and not load large data sets into memory
+write.csv(user.names2,"~/R projects/PseudoSQL/users.csv", row.names = FALSE)
+
+```
+
+Creating *sessions* data 
+
+```{r pressure, echo=TRUE}
+
+#ensure results are reproducible 
+set.seed(124) 
+
+#load users into myDB
+DBI::dbWriteTable(myDB, "users1", read.csv('~/R projects/PseudoSQL/users.csv', header = TRUE, sep=','))
+
+#create fictional usage data
+sessions <-as.data.frame(x = sample(1:550, 550, replace = FALSE))
+names(sessions) <-c('id')
+sessions$userId <- sample(1:97, 550, replace = TRUE)
+sessions$duration <- round(runif(550, min=5, max=90), digits = 2)
+
+DBI::dbWriteTable(myDB, "sessions1", sessions)
+
+```
+
+In R Markdown, each SQL statement must have it's own code chunk.
+Let's start by recreating the table *users*
+
+```{sql step1, connection=myDB}
+
+CREATE TABLE users (
+id INTEGER PRIMARY KEY NOT NULL,
+firstName VARCHAR(30) NOT NULL,
+lastName VARCHAR(30) NOT NULL );
+
+```
+
+Insert the data from R
+```{sql step2, connection=myDB}
+
+INSERT INTO users (id, firstName, lastName)
+SELECT id, firstName, lastName
+FROM users1
+ORDER BY id;
+
+```
+
+Recreate the table *sessions*
+```{sql step3, connection=myDB}
+
+CREATE TABLE sessions (
+id INTEGER PRIMARY KEY NOT NULL,
+userId INTEGER NOT NULL, 
+duration DECIMAL NOT NULL, 
+FOREIGN KEY (userId) REFERENCES users(id)
+);
+
+```
+
+Insert the data from R into *sessions* table
+```{sql step4, connection=myDB}
+
+INSERT INTO sessions (id, userId, duration)
+SELECT id, userId, duration
+FROM sessions1;
+
+```
+
+-- User data and their app usage data are kept in the tables above. 
+-- Each user can have multiple sessions. Write a SQL query that:
+--     - selects the ‘userIds’ with the top 50 average session durations
+--     - selects their full name from the user table as a single new column
+
+-- *Bonus for adding in a new column for each user and 
+-- flagging their 3rd longest duration with 1 , 
+-- otherwise put 0 (put 0 if they have fewer than 3 sessions) 
+
+```{sql query, connection=myDB}
+
+SELECT
+  u.id,
+  u.firstName || ' ' || u.lastName AS FullName,
+  s.AverageDuration
+  FROM users u
+  JOIN (
+  SELECT userId, 
+    ROUND(AVG(duration),3) AS AverageDuration
+  FROM sessions s
+  GROUP BY userId
+  ) AS s
+  ON u.id = s.userId
+  ORDER BY AverageDuration DESC
+  LIMIT 50;
+
+```
+
+Recreating SQL query result to R output
+```{r check, echo=TRUE}
+
+avedur <- round(aggregate(duration ~ userId, sessions, FUN = function(x){mean(x)}),digits=3)
+df <-read.csv('~/R projects/PseudoSQL/users.csv', header = TRUE, sep=',')
+avedur$FullName <- paste(df$firstName,df$lastName, sep=" ")
+# re-order columns to match SQL output
+avedur <- avedur[, c(1,3,2)]
+
+avedur.order <- avedur[with(avedur,order(-duration)),]
+avedur.order[1:10,]
+
+```
+
