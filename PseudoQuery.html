@@ -12,7 +12,7 @@
 <meta name="author" content="Catlaina Zavala" />
 
 
-<title>Top 50 Customers: SQL Pseudo Query</title>
+<title>SQL Pseudo Query</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -355,7 +355,7 @@ display: none;
 
 
 
-<h1 class="title toc-ignore">Top 50 Customers: SQL Pseudo Query</h1>
+<h1 class="title toc-ignore">SQL Pseudo Query</h1>
 <h4 class="author">Catlaina Zavala</h4>
 
 </div>
@@ -438,13 +438,6 @@ INSERT INTO sessions (id, userId, duration)
 SELECT id, userId, duration
 FROM sessions1;
 </code></pre>
-<p>– User data and their app usage data are kept in the tables above. –
-Each user can have multiple sessions. Write a SQL query that: – -
-selects the ‘userIds’ with the top 50 average session durations – -
-selects their full name from the user table as a single new column</p>
-<p>– *Bonus for adding in a new column for each user and – flagging
-their 3rd longest duration with 1 , – otherwise put 0 (put 0 if they
-have fewer than 3 sessions)</p>
 <pre class="sql"><code>
 SELECT
   u.id,

@@ -1,5 +1,5 @@
 ---
-title: 'Top 50 Customers: SQL Pseudo Query'
+title: 'SQL Pseudo Query'
 author: "Catlaina Zavala"
 output: html_document
 ---
@@ -111,15 +111,6 @@ SELECT id, userId, duration
 FROM sessions1;
 
 ```
-
--- User data and their app usage data are kept in the tables above. 
--- Each user can have multiple sessions. Write a SQL query that:
---     - selects the ‘userIds’ with the top 50 average session durations
---     - selects their full name from the user table as a single new column
-
--- *Bonus for adding in a new column for each user and 
--- flagging their 3rd longest duration with 1 , 
--- otherwise put 0 (put 0 if they have fewer than 3 sessions) 
 
 ```{sql query, connection=myDB}
 
